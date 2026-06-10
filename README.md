@@ -1,19 +1,13 @@
-
-
-```markdown
 # ActiveDefense SOC Sandbox
-
 An enterprise-grade, security-first Security Operations Center (SOC) sandbox engineered to simulate real-world cyber attacks, automate telemetry aggregation, and execute real-time incident mitigation. 
 
 This repository serves as complete technical documentation for building, breaking, and tuning an automated Intrusion Detection and Prevention System (IDS/IPS) inside an isolated virtual network architecture.
-
----
 
 ## 1. Network Architecture & Topology
 
 The entire infrastructure is isolated inside an Oracle VirtualBox dedicated **NAT Network** interface running on the subnet `10.0.2.0/24`. This setup simulates an enterprise DMZ while protecting the host machine from live-fire attack tools.
 
-```text
+```markdown
        [ Kali Linux ] (Attacker / Analyst Dashboard)
               │ (10.0.2.x)
               ▼
@@ -31,7 +25,7 @@ The entire infrastructure is isolated inside an Oracle VirtualBox dedicated **NA
 2. **SIEM Master Node (Ubuntu Server 24.04 LTS | `10.0.2.3`):** Orchestrates the decoupled core data and indexing engines using an isolated microservices container architecture.
 3. **Victim Endpoint (Ubuntu Minimal | `10.0.2.6`):** Simulates a live production server. Runs a lightweight logging agent that ships telemetry upstream to the master node over a secure TCP handshake.
 
----
+
 
 ## 2. Software & Dependencies Matrix
 
@@ -54,6 +48,77 @@ The entire infrastructure is isolated inside an Oracle VirtualBox dedicated **NA
 1. Created a dedicated global **NAT Network** in VirtualBox named `SecOpsNet` assigned to the IP space `10.0.2.0/24` with DHCP capabilities enabled.
 2. Provisioned 3 virtual endpoints and modified their respective Network Adapter settings from default `NAT` to `NAT Network (SecOpsNet)`.
 
+### Terminal-Based NAT Network Configuration (Cross-Platform)
+
+Instead of using the VirtualBox Graphical User Interface (GUI), the entire network topology and VM adapter assignments can be provisioned directly from the host terminal.
+
+#### Step 1: Locate the VirtualBox CLI Binary
+
+Depending on your host operating system, open your terminal or command prompt and use the appropriate pathing:
+
+* **Windows (PowerShell/CMD):**
+```powershell
+cd "C:\Program Files\Oracle\VirtualBox\"
+
+```
+
+
+* **macOS (Terminal):**
+```bash
+alias VBoxManage="/Applications/VirtualBox.app/Contents/MacOS/VBoxManage"
+
+```
+
+
+* **Linux (Terminal):**
+```bash
+vboxmanage --version
+
+```
+
+
+
+#### Step 2: Create and Initialize the NAT Network
+
+Run the following command on your host terminal to create the centralized isolated network interface (`SecOpsNet`), define the subnet range (`10.0.2.0/24`), and enable the built-in DHCP server:
+
+```bash
+# Windows users: prepend .\ to VBoxManage if running directly inside the Program Files directory
+VBoxManage natnetwork add --netname SecOpsNet --network "10.0.2.0/24" --enable --dhcp on
+
+# Ensure the network interface is explicitly started
+VBoxManage natnetwork start --netname SecOpsNet
+
+```
+
+#### Step 3: Attach the Virtual Machines to the Network
+
+To bind your virtual machines to the newly created `SecOpsNet` topology, configure their first Network Interface Card (`--nic1`) to operate as a `natnetwork` type and map it to `SecOpsNet`.
+
+Execute these commands sequentially on your host terminal (replace the quotes with your exact VM names if they differ):
+
+```bash
+# 1. Attach the Attacker / Analyst Node
+VBoxManage modifyvm "Kali-Linux" --nic1 natnetwork --natnet1 SecOpsNet
+
+# 2. Attach the SIEM Master Node
+VBoxManage modifyvm "Wazuh-Manager" --nic1 natnetwork --natnet1 SecOpsNet
+
+# 3. Attach the Target Production Victim Node
+VBoxManage modifyvm "Victim-Server" --nic1 natnetwork --natnet1 SecOpsNet
+
+```
+
+#### Step 4: Verify the Network Settings
+
+To confirm that the network has been successfully created and that all parameters are functioning properly, pull the active configuration state:
+
+```bash
+VBoxManage natnetwork list
+
+```
+
+---
 ### Phase 2: Deploying the Decoupled SIEM Stack
 
 1. Updated system repositories and provisioned the Docker runtime environment on the Ubuntu Master server.
@@ -144,7 +209,8 @@ Using the built-in global National Vulnerability Database (NVD) mappings, the la
 ### Initial Triage Results
 
 * **3 High-Severity Vulnerabilities** discovered in target base files.
-* **Key Risks Isolated:** * `CVE-2023-50782` (Flaw within the Python cryptography encryption handling library).
+* **Key Risks Isolated:**
+* `CVE-2023-50782` (Flaw within the Python cryptography encryption handling library).
 * `CVE-2024-0727` (Null-pointer parsing error in OpenSSL handling certificate validation, leading to remote Denial of Service).
 
 
